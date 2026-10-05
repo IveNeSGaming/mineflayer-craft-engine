@@ -1,0 +1,67 @@
+{
+  "name": "mineflayer-craft-engine",
+  "version": "1.0.0",
+  "description": "Fast recipe-book crafting, capacity-aware start/end chest routing, automatic shop ingredients and configurable Mineflayer production — by IveNeS",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "lib",
+    "examples",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs",
+    "VALIDATION.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js",
+    "prepack": "npm run check && npm test && npm run types",
+    "types": "tsc -p tsconfig.types.json"
+  },
+  "keywords": [
+    "mineflayer",
+    "minecraft",
+    "bot",
+    "crafting",
+    "automation",
+    "recipe-book",
+    "chest",
+    "production"
+  ],
+  "peerDependencies": {
+    "mineflayer": ">=4.20.0",
+    "mineflayer-pathfinder": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mineflayer-pathfinder": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "vec3": "^0.1.10"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "minecraft-data": "^3.111.0",
+    "mineflayer": "^4.37.1",
+    "mineflayer-pathfinder": "^2.4.5",
+    "prismarine-recipe": "^1.5.0",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT",
+  "author": "IveNeS",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IveNeSGaming/mineflayer-craft-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IveNeSGaming/mineflayer-craft-engine/issues"
+  },
+  "homepage": "https://github.com/IveNeSGaming/mineflayer-craft-engine#readme",
+  "engines": {
+    "node": ">=18"
+  }
+}

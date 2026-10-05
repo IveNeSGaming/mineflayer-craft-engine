@@ -1,16 +1,5 @@
 # mineflayer-craft-engine
 
-## Windows installation fix
-
-This release uses the public npm registry. On Windows, run:
-
-```powershell
-PowerShell -ExecutionPolicy Bypass -File .\install-clean.ps1
-```
-
-Or follow `INSTALL_WINDOWS.md`. Do not run tests until `npm install` finishes successfully.
-
-
 Mineflayer botlari uchun tez crafting va avtomatik ishlab chiqarish paketi.
 
 Paket quyidagi ishlarni bitta API orqali bajaradi:
@@ -41,11 +30,25 @@ yakunlash kafolatlanmaydi.
 ## Talablar
 
 - Node.js 18 yoki yangi;
-- Mineflayer;
+- Mineflayer 4.20+;
 - tavsiya etilgan Minecraft versiya: Java 1.18.2;
 - bot chestlar orasida yurishi kerak bo‘lsa `mineflayer-pathfinder`.
 
+### Versiya bo‘yicha qo‘llab-quvvatlash
+
+| Minecraft | `safe` | `fast` / `adaptive` |
+|---|---|---|
+| 1.8 – 1.17 | ✅ | `adaptive` avtomatik `safe`ga o‘tadi |
+| 1.17.1 – 1.21.1 | ✅ | ✅ Recipe Book (`craft_recipe_request`) |
+| 1.21.2+ | ✅ | ❌ protokol raqamli recipe-display ID ishlatadi: `fast` paketi umuman yuborilmaydi (`FAST_UNSUPPORTED`), `adaptive` `safe`ga o‘tadi |
+
+1.21.2+ da `mode: 'fast', fallback: false` ishlatilsa craft `FAST_UNSUPPORTED` bilan to‘xtaydi —
+u versiyalarda `safe` yoki `adaptive` tanlang.
+
 ## O‘rnatish
+
+Windowsda toza o‘rnatish kerak bo‘lsa `INSTALL_WINDOWS.md` yoki
+`PowerShell -ExecutionPolicy Bypass -File .\install-clean.ps1` dan foydalaning.
 
 NPM orqali:
 
@@ -355,6 +358,8 @@ const supervisor = craftEngine.createSupervisor({
   },
 
   reconnectDelayMs: 5000,
+  maxReconnects: 10,          // ketma-ket muvaffaqiyatsiz urinishlar chegarasi
+  stableConnectionMs: 60000,  // shuncha vaqt ishlagan ulanish hisoblagichni nolga qaytaradi
   reconnectOnJobError: true
 })
 
@@ -398,7 +403,34 @@ bot.craftEngine.on('jobError', console.error)
 bot.craftEngine.on('jobComplete', console.log)
 bot.craftEngine.on('shopBudgetExceeded', console.warn)
 bot.craftEngine.on('recipeMismatch', console.warn)
+// 1.0.0 dan:
+bot.craftEngine.on('cycleInterrupted', console.warn) // cycle o‘rtasida o‘lim; respawndan keyin davom etadi
+bot.craftEngine.on('partialCraft', console.warn)     // qisman craft qilindi, natija saqlandi
+bot.craftEngine.on('shopStopped', console.warn)      // shop chat xabari bilan to‘xtadi (pul yetmadi, inventar to‘la)
 ```
+
+TypeScript uchun barcha event nomlari va payloadlari `index.d.ts`dagi `CraftEngineEvents` ichida tiplangan.
+
+## Xatolar
+
+Paket xatolari `CraftEngineError` bo‘lib, `code` va `details` maydonlariga ega:
+
+```js
+const { CraftEngineError } = require('mineflayer-craft-engine')
+
+try {
+  await bot.craftEngine.production(options)
+} catch (err) {
+  if (err instanceof CraftEngineError && err.code === 'DESTINATION_FULL') {
+    console.log('Output chest to‘la:', err.details)
+  }
+}
+```
+
+Asosiy kodlar: `JOB_ACTIVE` (production allaqachon ishlayapti), `DESTINATION_FULL`
+(bitta chest to‘la — hech narsa kursorda qolmaydi), `DESTINATION_RANGE_FULL`, `FAST_UNSUPPORTED`,
+`MISSING_MATERIAL`, `NO_RECIPE`, `RANGE_TOO_LARGE`, `SHOP_ITEM_NOT_FOUND`, `SHOP_NO_PROGRESS`,
+`OUT_OF_REACH`, `TABLE_NOT_FOUND`.
 
 ## Eski API bilan moslik
 
@@ -422,17 +454,30 @@ await bot.craftEngine.production({
 npm install
 npm run check
 npm test
+npm run types
 ```
+
+`npm test` unit testlardan tashqari `test/integration.test.js`ni ham ishga tushiradi: real 1.18.2
+retsept ma’lumotlari, chestlar, double chestlar, GUI shop, Recipe Book protokoli va o‘lim/respawn
+simulyatsiya qilingan bot (`test/helpers/simbot.js`) ustida to‘liq production sikllari. Har bir
+testda itemlar soni saqlanishi (yo‘qolmaslik, ko‘paymaslik, kursorda qolib ketmaslik) tekshiriladi.
 
 ## Hozirgi real cheklovlar
 
 - Fast crafting uchun server recipe-book requestni qabul qilishi va retsept bot uchun
   ochilgan bo‘lishi kerak. Aks holda `adaptive` safe rejimga o‘tadi.
+- Fast crafting 1.21.2+ da qo‘llab-quvvatlanmaydi (yuqoridagi jadvalga qarang).
+- Inventar butunlay to‘lgan paytda Recipe Book gridida qolgan ingredientlarni server qaytara
+  olmasa, vanilla ularni yerga tashlaydi. Shu sabab production har siklda bitta slotni craft
+  natijasi uchun bo‘sh qoldiradi.
+- `production()` ishlayotganda `craft()` va `ensureStock()` navbatda kutadi (bitta bot bir vaqtda
+  bitta inventar amaliyotini bajaradi). Ikkinchi `production()` esa darhol `JOB_ACTIVE` bilan rad etiladi.
 - Custom GUI shop konfiguratsiyasi serverga moslashtiriladi; barcha serverlarda bir
   xil slot yoki title bo‘lmaydi.
 - Mineflayer bot obyekti connection tugagandan keyin o‘zini yangidan yarata olmaydi.
-  Paket o‘lim/respawnni bir connection ichida tiklaydi va checkpoint beradi;
-  to‘liq reconnectni botni yaratadigan tashqi supervisor bajarishi kerak.
+  Paket o‘lim/respawnni bir connection ichida tiklaydi (cycle o‘rtasidagi o‘lim ham) va
+  checkpoint beradi; connection uzilsa joriy job to‘xtatiladi, to‘liq reconnectni
+  `createSupervisor()` yoki o‘zingizning tashqi supervisoringiz bajaradi.
 - Raw packet tezligi serverning TPS, ping va click-rate cheklovlaridan yuqori bo‘la
   olmaydi.
 - Server qoidalarida bot va avtomatlashtirishga ruxsat borligini tekshiring.
